@@ -9,5 +9,5 @@ public abstract class BaseComponent
 
     public void SetParent(Element parent) => _element = parent;
 
-    public abstract bool Update(GameTime gameTime, SimulationMatrix world, IVector2 position);
+    public abstract bool Update(ref GameTime gameTime, ref SimulationMatrix world, IVector2 position);
 }

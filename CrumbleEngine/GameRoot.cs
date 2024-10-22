@@ -76,6 +76,12 @@ public class GameRoot : Game
         base.Draw(gameTime);
 
         GuiRenderer.BeginLayout(gameTime);
+        
+        #if DEBUG
+
+        Debugging.StartDebug();
+        
+        #endif
 
         GuiRenderer.EndLayout();
     }

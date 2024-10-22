@@ -6,64 +6,74 @@ namespace CrumbleEngine.Simulation.Elements.Components;
 
 public class GravityComponent : BaseComponent
 {
-    private Vector2 _velocity;
-    private readonly Vector2 _terminalVelocity = new Vector2(16f, 16f);
+    private Vector2 _velocity = Vector2.Zero;
+    private readonly Vector2 _terminalVelocity = new Vector2(2f, 2f);
 
-    public GravityComponent()
+    public override bool Update(ref GameTime gameTime, ref SimulationMatrix simMatrix, IVector2 position)
     {
-        _velocity = Vector2.Zero;
-    }
-
-    public override bool Update(GameTime gameTime, SimulationMatrix simMatrix, IVector2 position)
-    {
-        // if (_element.ReadFlag)
-            // Console.WriteLine($"{position}");
-
-        Vector2 newVelocity = _velocity + Vector2.One * (float)gameTime.ElapsedGameTime.TotalSeconds;
-        IVector2 endPosition = position + new IVector2((int)Math.Round(newVelocity.X), (int)Math.Round(newVelocity.Y));
+        /* calculate the new velocity.
+         *  - velocity += gravity.
+         * clamp the new velocity.
+         *  - clamp(velocity, terminal velocity)
+         * apply the new velocity.
+         *  - position += velocity
+         *      - check every element down
+         */
         
-        if (endPosition == position && _velocity == newVelocity) 
-            return false;
-        
-        _velocity = new Vector2(
+        Vector2 newVelocity = _velocity + SimulationMatrix.Gravity * (float)gameTime.ElapsedGameTime.TotalSeconds;
+        _velocity = new(
             MathHelper.Clamp(newVelocity.X, -_terminalVelocity.X, _terminalVelocity.X),
             MathHelper.Clamp(newVelocity.Y, -_terminalVelocity.Y, _terminalVelocity.Y)
         );
         
+        IVector2 endPosition = position + new IVector2((int)Math.Round(_velocity.X), (int)Math.Round(_velocity.Y));
+        
         int currentX = position.X;
         int currentY = position.Y + 1;
-        
-        if (_element.ReadFlag)
-            Console.WriteLine("");
+        bool hasMoved = false;
+        IVector2 currentPosition = position;
         
         for (; currentY <= endPosition.Y; currentY++)
         {
-            if (simMatrix.GetChunk(new (currentX, currentY)).IsCellEmpty(new(currentX, currentY)))
+            if (TryMoveTo(simMatrix, ref currentPosition, 0 , 1))
             {
-                simMatrix.SwapElement(position, new(currentX, currentY));
-                position = new IVector2(currentX, currentY);
-            }
-        
-            else if (simMatrix.GetChunk(new (currentX - 1, currentY)).IsCellEmpty(new(currentX - 1, currentY)))
-            {
-                currentX -= 1;
-                simMatrix.SwapElement(position, new(currentX, currentY));
-                position = new IVector2(currentX, currentY);
-            }
-            
-            else if (simMatrix.GetChunk(new (currentX + 1, currentY)).IsCellEmpty(new(currentX + 1, currentY)))
-            {
-                currentX += 1;
-                simMatrix.SwapElement(position, new(currentX, currentY));
-                position = new IVector2(currentX, currentY);
-            }
-            else
-                break;
+                hasMoved = true;
+                continue;
+            } // Move vertically
 
-            _element.SetNextPos(new(currentX, currentY));
+            int dir = Random.Shared.NextSingle() >= 0.5 ? 1 : -1;
+            if (TryMoveTo(simMatrix, ref currentPosition, dir , 1))
+            {
+                hasMoved = true;
+                continue;
+            } // Move right
+            if (TryMoveTo(simMatrix, ref currentPosition, -dir, 1)) 
+            {
+                hasMoved = true;
+                continue;
+            } // Move left
 
+            // If no movement is possible, break the loop
+            break;
         }
+        
+        // If currentY == position.Y + 1 we know that all movement was unsuccessful
+        // since we define currentY to be position.Y + 1
+        return hasMoved || _velocity != Vector2.Zero;
+    }
+    
+    private bool TryMoveTo(SimulationMatrix simMatrix, ref IVector2 currentPosition, int deltaX, int deltaY)
+    {
+        int newX = currentPosition.X + deltaX;
+        int newY = currentPosition.Y + deltaY;
 
-        return true;
+        if (!simMatrix.GetChunk(new(newX, newY)).IsCellEmpty(new(newX, newY)))
+            return false; // Movement failed
+
+        simMatrix.SwapElement(currentPosition, new(newX, newY));
+        currentPosition = new IVector2(newX, newY);
+        _element.SetNextPos(currentPosition);
+        
+        return true; // Movement was successful
     }
 }

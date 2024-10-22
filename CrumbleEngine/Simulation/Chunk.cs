@@ -68,14 +68,21 @@ public class Chunk
 
     public Element GetElement(IVector2 pos)
     {
-        return elements[pos.X % Size, pos.Y % Size];
+        return elements[
+            MathUtils.NegativeMod(pos.X, Size), 
+            MathUtils.NegativeMod(pos.Y, Size)
+        ];
     }
 
     public void SetElement(IVector2 pos, Element element)
     {
         if (element == null)
             Console.Write("a");
-        elements[pos.X % Size, pos.Y % Size] = element;
+        elements[
+            MathUtils.NegativeMod(pos.X, Size), 
+            MathUtils.NegativeMod(pos.Y, Size)
+        ] = element;
+        
         UpdateDirtyRect(pos);
         ShouldUpdateNextFrame = true;
     }
@@ -108,11 +115,11 @@ public class Chunk
         if (ShouldUpdateThisFrame == false) return;
         
         bool elementsUpdated = false;
-        for (int y = dirtyRect.Height - 1; y >= dirtyRect.Y; y--)
+        for (int y = dirtyRect.Y; y < dirtyRect.Height; y++)
         {
             for (int x = dirtyRect.X; x < dirtyRect.Width; x++)
             {
-                bool moved = elements[x, y].Update(gameTime, simMatrix, new IVector2(x, y) + Position * Size);
+                bool moved = elements[x, y].Update(ref gameTime, ref simMatrix, new IVector2(x, y) + Position * Size);
                 if (moved) elementsUpdated = true;
             }
         }
@@ -141,7 +148,7 @@ public class Chunk
             => (a.newPosition.X + a.newPosition.Y * Size).CompareTo(b.newPosition.X + b.newPosition.Y * Size)
         );
         
-        changes.Reverse();
+        // changes.Reverse();
         changes.Add(new(null, new IVector2(-1, -1), new IVector2(-1, -1)));
         
         Random random = Random.Shared;
@@ -167,8 +174,8 @@ public class Chunk
 
         }
         
-        
-        changes = _secondChance;
+        // changes = _secondChance;
+        changes.Clear();
         _secondChance.Clear();
     }
 

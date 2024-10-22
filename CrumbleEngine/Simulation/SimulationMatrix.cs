@@ -15,8 +15,7 @@ public class SimulationMatrix
     public static SimulationMatrix Instance { get; private set; }
 
     private readonly Texture2D _texture;
-    private Dictionary<IVector2, Chunk> _chunks;
-    private object _writeLock = new object();
+    private readonly Dictionary<IVector2, Chunk> _chunks;
 
     public SimulationMatrix(IVector2 screenSize)
     {
@@ -49,7 +48,12 @@ public class SimulationMatrix
 
     public Chunk GetChunk(IVector2 pos)
     {
-        IVector2 chunkPos = pos / new IVector2(Chunk.Size);
+        // IVector2 chunkPos = pos / new IVector2(Chunk.Size);
+        IVector2 chunkPos = new IVector2(
+            pos.X < 0 ? (pos.X / Chunk.Size) - 1 : pos.X / Chunk.Size,
+            pos.Y < 0 ? (pos.Y / Chunk.Size) - 1 : pos.Y / Chunk.Size
+        );
+        
         bool result = _chunks.TryGetValue(chunkPos, out Chunk chunk);
         if (result) return chunk;
         
@@ -126,9 +130,7 @@ public class SimulationMatrix
                     if (element == null || element.Type == ElementTypes.Void)
                     {
                         colors[elementPos.X + elementPos.Y * _texture.Bounds.Width] = chunk.ShouldUpdateNextFrame
-                            ? (flag
-                                ? Color.Blue
-                                : Color.Blue)
+                            ? (Color.Blue)
                             : Color.Red;
                     }
                     else

@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended.Input;
+using MonoGame.ImGuiNet;
 using MonoGame.Utilities;
 using MonoGame.Utilities.Scene;
 using MouseButton = Apos.Input.MouseButton;
@@ -35,10 +36,35 @@ public class MainGame : IScene
             // _world.SetElement(Element.GetElement(ElementTypes.Sand), new(x, 0));
         }
 
-        _world.SetElement(new(32+8, 0), Element.GetElement(ElementTypes.Sand, true));
-        _world.SetElement(new(32+7, 1), Element.GetElement(ElementTypes.Sand));
-        _world.SetElement(new(32+8, 1), Element.GetElement(ElementTypes.Sand));
-        _world.SetElement(new(32+9, 1), Element.GetElement(ElementTypes.Sand));
+        _world.SetElement(new(8, 0), Element.GetElement(ElementTypes.Sand, true));
+        _world.SetElement(new(7, 1), Element.GetElement(ElementTypes.Sand));
+        _world.SetElement(new(8, 1), Element.GetElement(ElementTypes.Sand));
+        _world.SetElement(new(9, 1), Element.GetElement(ElementTypes.Sand));
+
+        for (int y = 0; y < 20; y++)
+        {
+            for (int x = 0; x < y + 1; x++)
+            {
+                _world.SetElement(new(32+x, 16+y), Element.GetElement(ElementTypes.Stone));
+            }
+        }
+        
+        for (int y = 0; y < 20; y++)
+        {
+            for (int x = -y; x <= 0; x++)
+            {
+                _world.SetElement(new(73+x, 16+y), Element.GetElement(ElementTypes.Stone));
+            }
+        }
+
+        for (int y = 0; y < 20; y++)
+        {
+            for (int x = 0; x < 20; x++)
+            {
+                _world.SetElement(new(42+x, 5+y), Element.GetElement(ElementTypes.Sand));
+            }
+        }
+        
         
         // for (int y = 0; y < 10; y++)
         // {
@@ -69,6 +95,17 @@ public class MainGame : IScene
     {
         if (_startSim.Pressed())
             _started = !_started;
+
+        if (_debugSand.Pressed())
+        {
+            MouseState state = Mouse.GetState();
+            Vector2 clickPos = _camera.ScreenToWorld(state.X, state.Y);
+            clickPos += new Vector2(50, 50);
+            IVector2 clickPosInt = new IVector2((int)clickPos.X, (int)clickPos.Y);
+
+            _world.GetElement(clickPosInt).ShouldDebug = true;
+            _debugSand.Consume();
+        }
         
         if (_started == false)
             return;
@@ -112,4 +149,5 @@ public class MainGame : IScene
 
     private readonly AnyCondition _spawnSand = new AnyCondition(new MouseCondition(MouseButton.LeftButton));
     private readonly AnyCondition _startSim = new AnyCondition(new KeyboardCondition(Keys.Space));
+    private readonly AllCondition _debugSand = new AllCondition(new KeyboardCondition(Keys.LeftControl), new KeyboardCondition(Keys.LeftShift), new MouseCondition(MouseButton.LeftButton));
 }

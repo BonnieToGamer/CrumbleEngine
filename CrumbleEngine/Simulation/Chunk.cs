@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using CrumbleEngine.Simulation.Elements;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
+using MonoGame.Extended.Collections;
 using MonoGame.Utilities;
 
 namespace CrumbleEngine.Simulation;
@@ -106,8 +108,8 @@ public class Chunk
     {
         workingDirtyRect.X      = Math.Clamp(Math.Min(pos.X - dirtyRectMargin.X, workingDirtyRect.X), 0, Size);
         workingDirtyRect.Y      = Math.Clamp(Math.Min(pos.Y - dirtyRectMargin.Y, workingDirtyRect.Y), 0, Size);
-        workingDirtyRect.Width  = Math.Clamp(Math.Min(pos.X + dirtyRectMargin.X, workingDirtyRect.X), 0, Size);
-        workingDirtyRect.Height = Math.Clamp(Math.Min(pos.Y + dirtyRectMargin.Y, workingDirtyRect.Y), 0, Size);
+        workingDirtyRect.Width  = Math.Clamp(Math.Max(pos.X + dirtyRectMargin.X, workingDirtyRect.Width), 0, Size);
+        workingDirtyRect.Height = Math.Clamp(Math.Max(pos.Y + dirtyRectMargin.Y, workingDirtyRect.Height), 0, Size);
     }
 
     public void Update(GameTime gameTime, SimulationMatrix simMatrix)
@@ -125,9 +127,10 @@ public class Chunk
         }
 
         ShouldUpdateNextFrame = elementsUpdated;
+        
+        // dirtyRect = workingDirtyRect;
+        // workingDirtyRect = new(Size, Size, -1, -1);
     }
-
-    List<ElementChange> _secondChance = new();
     
     public void ProcessChanges(SimulationMatrix simMatrix)
     {
@@ -135,7 +138,6 @@ public class Chunk
         {
             if (IsCellEmpty(changes[i].newPosition)) continue;
             
-            _secondChance.Add(changes[i]);
             changes[i] = changes[^1];
             changes.RemoveAt(changes.Count - 1);
             i--;
@@ -148,7 +150,6 @@ public class Chunk
             => (a.newPosition.X + a.newPosition.Y * Size).CompareTo(b.newPosition.X + b.newPosition.Y * Size)
         );
         
-        // changes.Reverse();
         changes.Add(new(null, new IVector2(-1, -1), new IVector2(-1, -1)));
         
         Random random = Random.Shared;
@@ -174,9 +175,7 @@ public class Chunk
 
         }
         
-        // changes = _secondChance;
         changes.Clear();
-        _secondChance.Clear();
     }
 
     public void UpdateNextFrame()

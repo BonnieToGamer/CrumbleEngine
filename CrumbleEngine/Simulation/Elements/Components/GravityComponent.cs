@@ -7,7 +7,7 @@ namespace CrumbleEngine.Simulation.Elements.Components;
 public class GravityComponent : BaseComponent
 {
     private Vector2 _velocity = Vector2.Zero;
-    private readonly Vector2 _terminalVelocity = new Vector2(2f, 2f);
+    private readonly Vector2 _terminalVelocity = new Vector2(16f, 16f);
 
     public override bool Update(ref GameTime gameTime, ref SimulationMatrix simMatrix, IVector2 position)
     {

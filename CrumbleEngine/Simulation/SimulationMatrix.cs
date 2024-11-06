@@ -114,13 +114,10 @@ public class SimulationMatrix
         {
             Chunk chunk = renderChunks[pos];
         
-            bool flag = false;
             for (int y = 0; y < Chunk.Size; y++)
             {
-                if (y % 1 == 0) flag = !flag;
                 for (int x = 0; x < Chunk.Size; x++)
                 {
-                    flag = !flag;
                     IVector2 elementPos = new IVector2(x, y) + pos * Chunk.Size;
                     Rectangle elementRect = new Rectangle(elementPos.X, elementPos.Y, 1, 1);
                     if (elementRect.Intersects(cameraRect) == false)
@@ -139,7 +136,6 @@ public class SimulationMatrix
                     }
                 }
             }
-        
         }
         
         _texture.SetData(colors);

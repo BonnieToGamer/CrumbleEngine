@@ -163,7 +163,7 @@ public class World
         }
         
         _texture.SetData(colors);
-        spriteBatch.Draw(_texture, new Vector2(-50, -50), Color.White);
+        spriteBatch.Draw(_texture, Vector2.Zero, Color.White);
 
         // spriteBatch.DrawRectangle(offsetX -50, offsetY -50, 2, 2, Color.Red);
         

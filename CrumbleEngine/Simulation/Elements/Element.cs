@@ -82,29 +82,29 @@ public class Element : Debugging
         return any;
     }
 
-    public static Element GetElement(ElementTypes elementTypes)
+    public static Element GetElement(ElementTypes elementType)
     {
         Element element;
-        switch (elementTypes)
+        switch (elementType)
         {
             case ElementTypes.Void:
-                element = new(elementTypes, Color.Transparent);
+                element = new(elementType, GetColor(elementType));
                 return element;
             case ElementTypes.Sand:
-                element = new(elementTypes, Color.Yellow);
+                element = new(elementType, GetColor(elementType));
                 element.AddComponent(new GravityComponent());
                 element.AddComponent(new TemperatureComponent());
                 element.InitComponents();
                 return element;
             
             case ElementTypes.Stone:
-                element = new(elementTypes, Color.Gray);
+                element = new(elementType, GetColor(elementType));
                 element.AddComponent(new TemperatureComponent());
                 element.InitComponents();
                 return element;
             
             case ElementTypes.Water:
-                element = new Element(elementTypes, Color.Blue);
+                element = new Element(elementType, GetColor(elementType));
                 element.AddComponent(new LiquidComponent());
                 element.AddComponent(new GravityComponent());
                 element.AddComponent(new TemperatureComponent());
@@ -112,7 +112,7 @@ public class Element : Debugging
                 return element;
             
             case ElementTypes.Smoke:
-                element = new Element(elementTypes, Color.DarkGray);
+                element = new Element(elementType, GetColor(elementType));
                 element.AddComponent(new GravityComponent(-1));
                 element.AddComponent(new LiquidComponent());
                 element.AddComponent(new TemperatureComponent());
@@ -121,6 +121,25 @@ public class Element : Debugging
             
             default:
                 return null;
+        }
+    }
+
+    public static Color GetColor(ElementTypes elementTypes)
+    {
+        switch (elementTypes)
+        {
+                case ElementTypes.Sand:
+                    return Color.Yellow;
+                case ElementTypes.Stone:
+                    return Color.Gray;
+                case ElementTypes.Water:
+                    return Color.Blue;
+                case ElementTypes.Smoke:
+                    return Color.DarkGray;
+            
+                case ElementTypes.Void:
+                default:
+                    return Color.Transparent;
         }
     }
     

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using CrumbleEngine.Simulation.Elements.Components;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
@@ -15,10 +16,9 @@ public class Element : Debugging
     public bool ShouldDebug = false;
     public ElementTypes Type { get; private set; }
     public Color RenderColor { get; private set; }
-    public bool Updated { get; private set; }
     private readonly HashSet<BaseComponent> _components;
-    public IVector2? NextPos { get; private set; }
     
+    private bool _updated;
     private IVector2 _position;
     
     private Element(ElementTypes type, Color color)
@@ -26,6 +26,14 @@ public class Element : Debugging
         Type = type;
         RenderColor = Randomise(color);
         _components = new();
+    }
+
+    public void InitComponents()
+    {
+        foreach (BaseComponent component in _components)
+        {
+            component.Init();
+        }
     }
 
     private Color Randomise(Color color)
@@ -40,8 +48,8 @@ public class Element : Debugging
         return hslColor.ToRgb();
     }
 
-    public BaseComponent GetComponent<T>() where T : BaseComponent
-        => _components.First(component => component is T);
+    public T GetComponent<T>() where T : BaseComponent
+        => (T)_components.First(component => component is T);
 
     public bool AddComponent(BaseComponent component)
     {
@@ -54,28 +62,27 @@ public class Element : Debugging
 
     public void ResetUpdateFlag()
     {
-        NextPos = null;
-        Updated = false;
+        _updated = false;
+        foreach (BaseComponent component in _components)
+            component.ResetUpdate();
     }
 
-    public void SetNextPos(IVector2 pos) => NextPos = pos;
-    public void ResetNextPos() => NextPos = null;
-
-    public bool Update(ref GameTime gameTime, ref SimulationMatrix simMatrix, IVector2 position)
+    public bool Update(ref GameTime gameTime, ref World world, IVector2 position, ElementNeighborhoodPlacement placement)
     {
-        // if (Updated) return true;
+        if (_updated) return false;
         _position = position;
         
-        Updated = true;
         bool any = false;
         foreach (BaseComponent component in _components)
-            if (component.Update(ref gameTime, ref simMatrix, position))
+            if (component.Update(ref gameTime, ref world, position, placement))
                 any = true;
+
+        _updated = any;
 
         return any;
     }
 
-    public static Element GetElement(ElementTypes elementTypes, bool readFlag = false)
+    public static Element GetElement(ElementTypes elementTypes)
     {
         Element element;
         switch (elementTypes)
@@ -84,53 +91,32 @@ public class Element : Debugging
                 element = new(elementTypes, Color.Transparent);
                 return element;
             case ElementTypes.Sand:
-                // element = new(elementTypes, new Color(Random.Shared.NextSingle(), Random.Shared.NextSingle(), Random.Shared.NextSingle()));
                 element = new(elementTypes, Color.Yellow);
                 element.AddComponent(new GravityComponent());
+                element.AddComponent(new TemperatureComponent());
+                element.InitComponents();
                 return element;
             
             case ElementTypes.Stone:
                 element = new(elementTypes, Color.Gray);
+                element.AddComponent(new TemperatureComponent());
+                element.InitComponents();
                 return element;
             
-            case ElementTypes.Red:
-                element = new(elementTypes, Color.Red);
+            case ElementTypes.Water:
+                element = new Element(elementTypes, Color.Blue);
+                element.AddComponent(new LiquidComponent());
                 element.AddComponent(new GravityComponent());
-                return element;
-
-            case ElementTypes.Green:
-                element = new(elementTypes, Color.Green);
-                element.AddComponent(new GravityComponent());
-                return element;
-
-            case ElementTypes.Blue:
-                element = new(elementTypes, Color.Blue);
-                element.AddComponent(new GravityComponent());
-                return element;
-
-            case ElementTypes.Yellow:
-                element = new(elementTypes, Color.Yellow);
-                element.AddComponent(new GravityComponent());
-                return element;
-
-            case ElementTypes.Pink:
-                element = new(elementTypes, Color.Pink);
-                element.AddComponent(new GravityComponent());
-                return element;
-
-            case ElementTypes.Purple:
-                element = new(elementTypes, Color.Purple);
-                element.AddComponent(new GravityComponent());
-                return element;
-
-            case ElementTypes.Cyan:
-                element = new(elementTypes, Color.Cyan);
-                element.AddComponent(new GravityComponent());
+                element.AddComponent(new TemperatureComponent());
+                element.InitComponents();
                 return element;
             
-            case ElementTypes.MonoGameOrange:
-                element = new(elementTypes, Color.MonoGameOrange);
-                element.AddComponent(new GravityComponent());
+            case ElementTypes.Smoke:
+                element = new Element(elementTypes, Color.DarkGray);
+                element.AddComponent(new GravityComponent(-1));
+                element.AddComponent(new LiquidComponent());
+                element.AddComponent(new TemperatureComponent());
+                element.InitComponents();
                 return element;
             
             default:
@@ -149,7 +135,7 @@ public class Element : Debugging
         if (ImGui.Combo("Type", ref currentIndex, types, types.Length))
             Type = (ElementTypes)currentIndex;
 
-        ImGui.Text($"Position: ${_position}");
+        ImGui.Text($"Position: {_position}");
         
         if (ImGui.Button("Remove watch"))
             ShouldDebug = false;
@@ -163,12 +149,14 @@ public enum ElementTypes
     Void,
     Sand,
     Stone,
-    Red,
-    Green,
-    Blue,
-    Yellow,
-    Pink,
-    Purple,
-    Cyan,
-    MonoGameOrange
+    Water,
+    Smoke
+}
+
+public enum ElementNeighborhoodPlacement
+{
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight
 }

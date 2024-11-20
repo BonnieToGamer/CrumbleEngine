@@ -21,12 +21,15 @@ public class Timer
     {
         Elapsed += delta;
 
-        if (Elapsed >= Length)
-        {
-            Elapsed = 0;
-            return true;
-        }
+        if (Elapsed < Length) return false;
+        
+        Elapsed = 0;
+        return true;
 
-        return false;
+    }
+
+    public void Reset()
+    {
+        Elapsed = 0f;
     }
 }

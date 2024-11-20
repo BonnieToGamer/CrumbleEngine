@@ -16,6 +16,8 @@ public class GameRoot : Game
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private SceneManager _sceneManager;
+    private float _fps;
+    
     public static ImGuiRenderer GuiRenderer;
     internal static GameRoot Instance { get; private set; }
 
@@ -38,7 +40,7 @@ public class GameRoot : Game
         _graphics.PreferredBackBufferWidth = 100 * 6;
         _graphics.PreferredBackBufferHeight = 100 * 6;
         _graphics.ApplyChanges();
-
+        
         base.Initialize();
     }
 
@@ -63,6 +65,8 @@ public class GameRoot : Game
 
         _sceneManager.GetCurrentScene().Update(gameTime);
 
+        _fps = (float)(1 / gameTime.ElapsedGameTime.TotalSeconds);
+
         base.Update(gameTime);
         InputHelper.UpdateCleanup();
     }
@@ -79,6 +83,9 @@ public class GameRoot : Game
         
         #if DEBUG
 
+        ImGui.Begin("General stats");
+        ImGui.Text($"Fps: {_fps}");
+        
         Debugging.StartDebug();
         
         #endif

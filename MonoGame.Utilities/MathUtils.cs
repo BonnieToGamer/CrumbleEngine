@@ -1,3 +1,5 @@
+using System;
+
 namespace MonoGame.Utilities;
 
 public static class MathUtils

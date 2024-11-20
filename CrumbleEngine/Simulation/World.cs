@@ -5,19 +5,20 @@ using System.Threading.Tasks;
 using CrumbleEngine.Simulation.Elements;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using MonoGame.Extended;
 using MonoGame.Utilities;
 
 namespace CrumbleEngine.Simulation;
 
-public class SimulationMatrix
+public class World
 {
     public static readonly Vector2 Gravity = new(0, 9.8f);
-    public static SimulationMatrix Instance { get; private set; }
+    public static World Instance { get; private set; }
 
     private readonly Texture2D _texture;
     private readonly Dictionary<IVector2, Chunk> _chunks;
 
-    public SimulationMatrix(IVector2 screenSize)
+    public World(IVector2 screenSize)
     {
         Instance = this;
         _texture = new Texture2D(GameRoot.Instance.GraphicsDevice, screenSize.X, screenSize.Y);
@@ -27,8 +28,8 @@ public class SimulationMatrix
     public void SetElement(IVector2 pos, Element element)
     {
         Chunk chunk = GetChunk(pos);
-        chunk.SetElement(pos, element);
-        chunk.UpdateNextFrame();
+        chunk?.SetElement(pos, element);
+        chunk?.UpdateNextFrame();
     }
 
     public Element GetElement(int x, int y)
@@ -36,17 +37,37 @@ public class SimulationMatrix
         return GetElement(new IVector2(x, y));
     }
 
-    public void SwapElement(IVector2 a, IVector2 b)
+    public bool SwapElement(IVector2 a, IVector2 b)
     {
-        GetChunk(a).MoveElement(a, b);
+        Chunk chunkA = GetChunk(a);
+        Chunk chunkB = GetChunk(b);
+        if (chunkA == null || chunkB == null) return false;
+        
+        Element temp = chunkA.GetElement(a);
+        
+        chunkA.SetElement(a, chunkB.GetElement(b));
+        chunkB.SetElement(b, temp);
+
+        void UpdateNeighbourChunk(IVector2 pos)
+        {
+            int x = pos.X % Chunk.Size;
+            int y = pos.Y % Chunk.Size;
+            if (x == 0 || x == Chunk.Size - 1) 
+                GetChunk(pos + new IVector2(x == 0 ? -1 : 1, 0))?.UpdateNextFrame();
+            if (y == 0 || y == Chunk.Size - 1) 
+                GetChunk(pos + new IVector2(0, y == 0 ? -1 : 1))?.UpdateNextFrame();
+        }
+
+        UpdateNeighbourChunk(a);
+        return true;
     }
 
     public Element GetElement(IVector2 pos)
     {
-        return GetChunk(pos)?.GetElement(pos) ?? Element.GetElement(ElementTypes.Void);
+        return GetChunk(pos, false)?.GetElement(pos) ?? Element.GetElement(ElementTypes.Void);
     }
 
-    public Chunk GetChunk(IVector2 pos)
+    private Chunk GetChunk(IVector2 pos, bool createChunk = true)
     {
         // IVector2 chunkPos = pos / new IVector2(Chunk.Size);
         IVector2 chunkPos = new IVector2(
@@ -56,6 +77,8 @@ public class SimulationMatrix
         
         bool result = _chunks.TryGetValue(chunkPos, out Chunk chunk);
         if (result) return chunk;
+        if (createChunk == false) return null;
+        if (pos.Y > 64 || pos.Y < 0) return null;
         
         chunk = new Chunk(chunkPos);
         _chunks.Add(chunkPos, chunk);
@@ -63,37 +86,38 @@ public class SimulationMatrix
         return chunk;
     }
 
+    // private int offsetX = 0;
+    // private int offsetY = 0;
+    
     public void Update(GameTime gameTime)
     {
         _chunks.AsParallel().ForAll(x => x.Value.ApplyAndResetUpdateFlags());
-        Dictionary<IVector2, Chunk> updateChunks = _chunks.Where(x => x.Value.ShouldUpdateThisFrame).ToDictionary(x => x.Key, x => x.Value);
+        KeyValuePair<IVector2, Chunk>[] updateChunks = _chunks.Where(x => x.Value.ShouldUpdateThisFrame).ToArray();
 
-        for (int yPattern = 0; yPattern < 2; yPattern++)
+        int startPosX = Random.Shared.Next(0, 2);
+        int endPosX = startPosX == 0 ? 2 : -1;
+        int addX = startPosX == 0 ? 1 : -1;
+        
+        for (int offsetY = -1; offsetY < 1; offsetY += 1)
         {
-            for (int xGroup = 0; xGroup < 2; xGroup++)
+            for (int offsetX = startPosX; offsetX != endPosX; offsetX += addX)
             {
-                UpdateCycle(gameTime, updateChunks, xGroup, yPattern);
+                foreach (KeyValuePair<IVector2, Chunk> kvp in updateChunks)
+                    kvp.Value.Update(gameTime, this, offsetX, offsetY);
             }
         }
-
-        foreach (Chunk chunk in updateChunks.Values)
-        {
-            chunk.ProcessChanges(this);
-        }
-    }
-
-    private void UpdateCycle(GameTime gameTime, Dictionary<IVector2, Chunk> updateChunks, int xGroup, int yPattern)
-    {
-        Dictionary<IVector2, Chunk> cycleChunks = updateChunks
-            .Where(x => x.Key.X % 2 == xGroup && x.Key.Y % 2 == yPattern)
-            .ToDictionary(x => x.Key, x => x.Value);
-
-        Task[] tasks = new Task[cycleChunks.Count];
-
-        foreach (Chunk chunk in cycleChunks.Values)
-        {
-            chunk.Update(gameTime, this);
-        }
+        
+        // foreach (KeyValuePair<IVector2, Chunk> kvp in updateChunks)
+        //     kvp.Value.Update(gameTime, this, offsetX, offsetY);
+        //
+        // offsetX++;
+        // if (offsetX >= 2)
+        // {
+        //     offsetX = 0;
+        //     offsetY++;
+        //     if (offsetY >= 2)
+        //         offsetY = 0;
+        // }
     }
 
     public void Draw(SpriteBatch spriteBatch, Vector2 cameraLocation)
@@ -127,7 +151,7 @@ public class SimulationMatrix
                     if (element == null || element.Type == ElementTypes.Void)
                     {
                         colors[elementPos.X + elementPos.Y * _texture.Bounds.Width] = chunk.ShouldUpdateNextFrame
-                            ? (Color.Blue)
+                            ? (Color.Green)
                             : Color.Red;
                     }
                     else
@@ -141,6 +165,8 @@ public class SimulationMatrix
         _texture.SetData(colors);
         spriteBatch.Draw(_texture, new Vector2(-50, -50), Color.White);
 
+        // spriteBatch.DrawRectangle(offsetX -50, offsetY -50, 2, 2, Color.Red);
+        
         // for (int y = 0; y < _texture.Bounds.Height; y++)
         // {
         //     for (int x = 0; x < _texture.Bounds.Width; x++)

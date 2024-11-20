@@ -6,74 +6,44 @@ namespace CrumbleEngine.Simulation.Elements.Components;
 
 public class GravityComponent : BaseComponent
 {
-    private Vector2 _velocity = Vector2.Zero;
-    private readonly Vector2 _terminalVelocity = new Vector2(16f, 16f);
+    private int _gravity;
 
-    public override bool Update(ref GameTime gameTime, ref SimulationMatrix simMatrix, IVector2 position)
+    public GravityComponent(int gravity = 1)
     {
-        /* calculate the new velocity.
-         *  - velocity += gravity.
-         * clamp the new velocity.
-         *  - clamp(velocity, terminal velocity)
-         * apply the new velocity.
-         *  - position += velocity
-         *      - check every element down
-         */
-        
-        Vector2 newVelocity = _velocity + SimulationMatrix.Gravity * (float)gameTime.ElapsedGameTime.TotalSeconds;
-        _velocity = new(
-            MathHelper.Clamp(newVelocity.X, -_terminalVelocity.X, _terminalVelocity.X),
-            MathHelper.Clamp(newVelocity.Y, -_terminalVelocity.Y, _terminalVelocity.Y)
-        );
-        
-        IVector2 endPosition = position + new IVector2((int)Math.Round(_velocity.X), (int)Math.Round(_velocity.Y));
-        
-        int currentX = position.X;
-        int currentY = position.Y + 1;
-        bool hasMoved = false;
-        IVector2 currentPosition = position;
-        
-        for (; currentY <= endPosition.Y; currentY++)
-        {
-            if (TryMoveTo(simMatrix, ref currentPosition, 0 , 1))
-            {
-                hasMoved = true;
-                continue;
-            } // Move vertically
-
-            int dir = Random.Shared.NextSingle() >= 0.5 ? 1 : -1;
-            if (TryMoveTo(simMatrix, ref currentPosition, dir , 1))
-            {
-                hasMoved = true;
-                continue;
-            } // Move right
-            if (TryMoveTo(simMatrix, ref currentPosition, -dir, 1)) 
-            {
-                hasMoved = true;
-                continue;
-            } // Move left
-
-            // If no movement is possible, break the loop
-            break;
-        }
-        
-        // If currentY == position.Y + 1 we know that all movement was unsuccessful
-        // since we define currentY to be position.Y + 1
-        return hasMoved || _velocity != Vector2.Zero;
+        _gravity = gravity;
     }
     
-    private bool TryMoveTo(SimulationMatrix simMatrix, ref IVector2 currentPosition, int deltaX, int deltaY)
+    public override void Init() {}
+    
+    public override bool Update(ref GameTime gameTime, ref World world, IVector2 position, ElementNeighborhoodPlacement placement)
     {
-        int newX = currentPosition.X + deltaX;
-        int newY = currentPosition.Y + deltaY;
+        if (_updated) return true;
 
-        if (!simMatrix.GetChunk(new(newX, newY)).IsCellEmpty(new(newX, newY)))
-            return false; // Movement failed
+        if (placement is not (ElementNeighborhoodPlacement.TopLeft or ElementNeighborhoodPlacement.TopRight))
+            return false;
 
-        simMatrix.SwapElement(currentPosition, new(newX, newY));
-        currentPosition = new IVector2(newX, newY);
-        _element.SetNextPos(currentPosition);
-        
-        return true; // Movement was successful
+        // Check below
+        if (TryMoveOrInteract(position + new IVector2(0, _gravity), ref world, position))
+        {
+            _updated = true;
+            return true;
+        }
+
+        // Check diagonals based on placement
+        if (placement == ElementNeighborhoodPlacement.TopRight && 
+            TryMoveOrInteract(position + new IVector2(-1, _gravity), ref world, position))
+        {
+            _updated = true;
+            return true;
+        }
+
+        if (placement == ElementNeighborhoodPlacement.TopLeft && 
+            TryMoveOrInteract(position + new IVector2(1, _gravity), ref world, position))
+        {
+            _updated = true;
+            return true;
+        }
+
+        return false;
     }
 }

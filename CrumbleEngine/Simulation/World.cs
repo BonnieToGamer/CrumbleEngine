@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CrumbleEngine.Simulation.Elements;
+using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
@@ -10,19 +12,27 @@ using MonoGame.Utilities;
 
 namespace CrumbleEngine.Simulation;
 
-public class World
+public class World : Debugging
 {
     public static readonly Vector2 Gravity = new(0, 9.8f);
     public static World Instance { get; private set; }
 
     private readonly Texture2D _texture;
-    private readonly Dictionary<IVector2, Chunk> _chunks;
+    private readonly Chunk[,] _chunks;
+    private int _chunkAccessCounter = 0;
 
     public World(IVector2 screenSize)
     {
         Instance = this;
-        _texture = new Texture2D(GameRoot.Instance.GraphicsDevice, screenSize.X, screenSize.Y);
-        _chunks = new();
+        _texture = new Texture2D(GameRoot.Instance.GraphicsDevice, 400, 400);
+        _chunks = new Chunk[8,8]; // HACK: This is an arbitrary number
+        for (int y = 0; y < 8; y++)
+        {
+            for (int x = 0; x < 8; x++)
+            {
+                _chunks[x, y] = new Chunk(new IVector2(x, y));
+            }
+        }
     }
 
     public void SetElement(IVector2 pos, Element element)
@@ -69,21 +79,25 @@ public class World
 
     private Chunk GetChunk(IVector2 pos, bool createChunk = true)
     {
+        _chunkAccessCounter++;
         // IVector2 chunkPos = pos / new IVector2(Chunk.Size);
         IVector2 chunkPos = new IVector2(
             pos.X < 0 ? (pos.X / Chunk.Size) - 1 : pos.X / Chunk.Size,
             pos.Y < 0 ? (pos.Y / Chunk.Size) - 1 : pos.Y / Chunk.Size
         );
-        
-        bool result = _chunks.TryGetValue(chunkPos, out Chunk chunk);
-        if (result) return chunk;
-        if (createChunk == false) return null;
-        if (pos.Y > 64 || pos.Y < 0) return null;
-        
-        chunk = new Chunk(chunkPos);
-        _chunks.Add(chunkPos, chunk);
 
-        return chunk;
+        if (chunkPos.X is >= 0 and < 8 && chunkPos.Y is >= 0 and < 8)
+            return _chunks[chunkPos.X, chunkPos.Y];
+        
+        // bool result = _chunks.TryGetValue(chunkPos, out Chunk chunk);
+        // if (result) return chunk;
+        // if (createChunk == false) return null;
+        // if (pos.Y > 256 || pos.Y < 0 || pos.X < 0 || pos.X > 256) return null;
+        //
+        // chunk = new Chunk(chunkPos);
+        // _chunks.Add(chunkPos, chunk);
+
+        return null;
     }
 
     // private int offsetX = 0;
@@ -91,19 +105,36 @@ public class World
     
     public void Update(GameTime gameTime)
     {
-        _chunks.AsParallel().ForAll(x => x.Value.ApplyAndResetUpdateFlags());
-        KeyValuePair<IVector2, Chunk>[] updateChunks = _chunks.Where(x => x.Value.ShouldUpdateThisFrame).ToArray();
+        _chunkAccessCounter = 0;
+        // _chunks.AsParallel().ForAll(x => x.Value.ApplyAndResetUpdateFlags());
+        foreach (Chunk chunk in _chunks)
+            chunk.ApplyAndResetUpdateFlags();
+        
+        List<Chunk> updateChunksList = new List<Chunk>();
+
+        // Iterate through the 2D array
+        for (int x = 0; x < _chunks.GetLength(0); x++)
+        {
+            for (int y = 0; y < _chunks.GetLength(1); y++)
+            {
+                Chunk chunk = _chunks[x, y];
+                if (chunk.ShouldUpdateThisFrame) // Assuming Chunk has this property
+                {
+                    updateChunksList.Add(chunk);
+                }
+            }
+        }
 
         int startPosX = Random.Shared.Next(0, 2);
         int endPosX = startPosX == 0 ? 2 : -1;
         int addX = startPosX == 0 ? 1 : -1;
-        
+
         for (int offsetY = -1; offsetY < 1; offsetY += 1)
         {
             for (int offsetX = startPosX; offsetX != endPosX; offsetX += addX)
             {
-                foreach (KeyValuePair<IVector2, Chunk> kvp in updateChunks)
-                    kvp.Value.Update(gameTime, this, offsetX, offsetY);
+                foreach (Chunk chunk in updateChunksList)
+                    chunk.Update(gameTime, this, offsetX, offsetY);
             }
         }
         
@@ -126,14 +157,18 @@ public class World
         
         Dictionary<IVector2, Chunk> renderChunks = new();
         Rectangle cameraRect = new Rectangle((int)cameraLocation.X, (int)cameraLocation.Y, _texture.Bounds.Width, _texture.Bounds.Height);
-        
-        foreach (IVector2 pos in _chunks.Keys)
+
+        for (int y = 0; y < 8; y++)
         {
-            Rectangle chunkRect = new Rectangle(pos.X * Chunk.Size, pos.Y * Chunk.Size, Chunk.Size, Chunk.Size);
-            if (cameraRect.Intersects(chunkRect))
-                renderChunks.Add(pos, _chunks[pos]);
+            for (int x = 0; x < 8; x++)
+            {
+                IVector2 pos = new(x, y);
+                Rectangle chunkRect = new Rectangle(pos.X * Chunk.Size, pos.Y * Chunk.Size, Chunk.Size, Chunk.Size);
+                if (cameraRect.Intersects(chunkRect))
+                    renderChunks.Add(pos, _chunks[x, y]);
+            }
         }
-        
+
         foreach (IVector2 pos in renderChunks.Keys)
         {
             Chunk chunk = renderChunks[pos];
@@ -177,6 +212,13 @@ public class World
 
         // _texture.SetData(colors);
         // spriteBatch.Draw(_texture, location - (new Vector2(_texture.Bounds.Width, _texture.Bounds.Height) / 2f), Color.White);
+    }
+
+    protected override void Debug()
+    {
+        ImGui.Begin("General stats");
+        ImGui.Text($"Chunk access: {_chunkAccessCounter}");
+        ImGui.End();
     }
 
     public IVector2 GetChunkPosition(IVector2 position)

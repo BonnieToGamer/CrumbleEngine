@@ -82,9 +82,10 @@ public class GameRoot : Game
         GuiRenderer.BeginLayout(gameTime);
         
         #if DEBUG
-
+        
         ImGui.Begin("General stats");
         ImGui.Text($"Fps: {_fps}");
+        ImGui.End();
         
         Debugging.StartDebug();
         

@@ -41,7 +41,7 @@ public class MainGame : IScene
         _intentionMatrix = new IVector2[100, 100];
         // _defaultViewport = new DensityViewport(GameRoot.Instance.GraphicsDevice, GameRoot.Instance.Window, 100, 100);
         BoxingViewportAdapter viewport =
-            new BoxingViewportAdapter(GameRoot.Instance.Window, GameRoot.Instance.GraphicsDevice, 100, 100);
+            new BoxingViewportAdapter(GameRoot.Instance.Window, GameRoot.Instance.GraphicsDevice, 400, 400);
         _camera = new OrthographicCamera(viewport);
 
         // _camera.Y = 50;
@@ -147,7 +147,7 @@ public class MainGame : IScene
         }
         
         
-        if (_spawnSand.Pressed())
+        if (_spawnSand.Held())
         {
             MouseStateExtended mouseState = MouseExtended.GetState();
             Vector2 worldPos = _camera.ScreenToWorld(mouseState.X, mouseState.Y);
